@@ -3,10 +3,7 @@ import time
 import sys
 from collections import deque
 
-# Create a Bluetooth object
-ble = BLE(name="Bram")
 
-orientation = 1
 
 
 class Block:
@@ -37,14 +34,13 @@ def adjust(robot, t, t2):
 def moveForward(robot):
     #start moving forward
     robot.m1_forward(25)
-    robot.m2_forward(25)
+    robot.m2_forward(26)
     t = 0.0
     t2 = 0.0
     left = False
     right = False
     #goes unil both sensors have been activated
     while not (left and right):
-
         if robot.ir_left() and not left:
             t = time.time_ns()
             left = True
@@ -60,15 +56,18 @@ def moveForward(robot):
     time.sleep(.1)
     adjust(robot, t, t2)
     #keeps moving until it hopefully gets to the center of the square
-    robot.m1_forward(25)
-    robot.m2_forward(25)
+    robot.m1_forward(21)
+    robot.m2_forward(21)
 
-    time.sleep(.8)
+    time.sleep(1.2)
 
     robot.stop()
 
 
+orientation = 1
+
 def face(robot, direction):
+    global orientation
     #if direction = orientation
     if(orientation == direction):
         return
@@ -86,13 +85,13 @@ def face(robot, direction):
 
 
 def turnLeft(robot):
-    robot.m1_forward(24)
-    time.sleep(.75)
+    robot.m1_forward(19)
+    time.sleep(.9)
     robot.stop()
 
 def turnRight(robot):
-    robot.m2_forward(24)
-    time.sleep(.75)
+    robot.m2_forward(19)
+    time.sleep(.9)
     robot.stop()
 
 def moveLeft(robot):
@@ -109,7 +108,7 @@ def moveRight(robot):
 def setDangers(board, curX, curY):
     rows = len(board)
     cols = len(board[0])
-    
+
     if board[curY][curX].visited:
         board[curY][curX].maybeWumpus = False
         board[curY][curX].maybePit = False
@@ -162,28 +161,29 @@ def setDangers(board, curX, curY):
                 board[curY][curX].gold = False
                 board[curY][curX].maybeGold = False
 
-def get_environment_input():
-
-    #wait for a number, keep recieving numbers and adding to an int until it recieves -1 (dont add -1)
+def get_environment_input(ble):
+    #wait for a number, keep recieving numbers and adding to an int until it recieves 16 (dont add 16)
     input_data = 0
+    ble.send(0)
     response = ble.read()
-    old = 21
+    old = response
 
     while True:
+        print("Getting input. response = " + str(response))
         response = ble.read()
-        if(response == 16):
+        if(response == 16 and response != old):
             break
         if(response != old):
             input_data += response
         old = response
-        time.sleep(0.1)
-        
+        time.sleep(0.2)
+    print("got input: " + str(input_data))
     return int(input_data)
 
 def processInput(board, inputValue, curX, curY):
     rows = len(board)
     cols = len(board[0])
-    
+
     while inputValue > 0:
         if inputValue >= 8:
             # found gold
@@ -240,7 +240,8 @@ def pathFind(board, path, curX, curY):
     cols = len(board[0])
 
     # First, try to find a safe, unvisited, maybeGold block
-    queue = deque()
+    # queue = deque()
+    queue = []
     visited_positions = set()
 
     # Enqueue starting position
@@ -248,8 +249,7 @@ def pathFind(board, path, curX, curY):
     visited_positions.add((curX, curY))
 
     while queue:
-        x, y, path_so_far = queue.popleft()
-
+        x, y, path_so_far = queue.pop(0)
         # Check if this is a safe, unvisited, maybeGold block
         if not board[y][x].visited and isSafe(board, x, y) and board[y][x].maybeGold:
             # Found our target
@@ -265,13 +265,13 @@ def pathFind(board, path, curX, curY):
                     queue.append((nx, ny, path_so_far + [(x, y)]))
 
     # If no safe, maybeGold block found, find any safe, unvisited block
-    queue = deque()
+    queue = []
     visited_positions = set()
     queue.append((curX, curY, []))
     visited_positions.add((curX, curY))
 
     while queue:
-        x, y, path_so_far = queue.popleft()
+        x, y, path_so_far = queue.pop(0)
 
         # Check if this is a safe, unvisited block
         if not board[y][x].visited and isSafe(board, x, y):
@@ -295,7 +295,7 @@ def pathFindToStart(board, path, curX, curY):
     cols = len(board[0])
 
     # Find path back to (0, 0)
-    queue = deque()
+    queue = []
     visited_positions = set()
 
     # Enqueue starting position
@@ -303,7 +303,7 @@ def pathFindToStart(board, path, curX, curY):
     visited_positions.add((curX, curY))
 
     while queue:
-        x, y, path_so_far = queue.popleft()
+        x, y, path_so_far = queue.pop(0)
 
         # Check if this is the starting block
         if x == 0 and y == 0:
@@ -324,8 +324,10 @@ def pathFindToStart(board, path, curX, curY):
 
 def main():
     robot = NanoBot()
-    
-    orientation = 1
+
+    # Create a Bluetooth object
+    ble = BLE(name="Bram")
+    ble.send(0)
 
     curX = 0
     curY = 0
@@ -336,13 +338,16 @@ def main():
 
     hasGold = False  # Flag to indicate if gold has been found
 
+    print("got to loop")
+
     while True:
         # If the current block hasn't been visited
         if not board[curY][curX].visited:
             # Get input from the environment
-            inputValue = get_environment_input()
+            inputValue = get_environment_input(ble)
+            print("after get Input")
             processInput(board, inputValue, curX, curY)
-
+            print("input processed")
             # Mark the block as visited
             board[curY][curX].visited = True
 
@@ -354,7 +359,8 @@ def main():
                 pathFindToStart(board, path, curX, curY)
                 hasPath = True
                 continue  # Proceed to move back to start
-
+            else:
+                print("gold not found")
             # Recalculate dangers
             for y in range(4):
                 for x in range(4):
@@ -367,35 +373,40 @@ def main():
             pathFind(board, path, curX, curY)
             if not path:
                 # No safe path found
-                sys.stderr.write("No safe path found.\n")
+                print("No safe path found.\n")
                 sys.stderr.flush()
                 break
 
         # Move to next position in path
+        print("Move to next position in path")
         nextX, nextY = path.pop(0)
         if nextX > curX:
             action = "e"
             face(robot, 2)
             moveForward(robot)
+            print("moving")
         elif nextX < curX:
             action = "w"
             face(robot, 4)
             moveForward(robot)
+            print("moving")
 
         elif nextY > curY:
             action = "n"
             face(robot, 1)
             moveForward(robot)
+            print("moving")
         elif nextY < curY:
             action = "s"
             face(robot, 3)
             moveForward(robot)
+            print("moving")
         else:
             action = ""
+            print("next = cur? shouldnt happen")
 
         if action:
-            sys.stdout.write(action + "\n")
-            sys.stdout.flush()
+            print(action + "\n")
             curX, curY = nextX, nextY
         else:
             # No movement needed
