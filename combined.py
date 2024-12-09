@@ -4,7 +4,7 @@ import sys
 from collections import deque
 
 
-
+motorConstant = 10
 
 class Block:
     def __init__(self, visited, maybeWumpus, maybePit, maybeGold, gold, breeze, smell, glitter):
@@ -19,22 +19,28 @@ class Block:
 
 
 def adjust(robot, t, t2):
+    global motorConstant
+
+    if abs(t-t2 < 100):
+        return
+
     if t  < t2:
-        robot.m1_forward(45)
+        robot.m1_forward(1.9 * motorConstant)
         print("dif: " + str(((t2-t)/1000000000)))
         time.sleep(((t2-t)/1000000000))
         robot.stop()
     elif t > t2:
-        robot.m2_forward(45)
+        robot.m2_forward(1.9 * motorConstant)
         print("dif: " + str(((t-t2)/1000000000)))
         time.sleep(((t-t2)/1000000000))
         robot.stop()
 
 
 def moveForward(robot):
+    global motorConstant
     #start moving forward
-    robot.m1_forward(25)
-    robot.m2_forward(26)
+    robot.m1_forward(2.1 * motorConstant)
+    robot.m2_forward(2.1 * motorConstant)
     t = 0.0
     t2 = 0.0
     left = False
@@ -56,8 +62,8 @@ def moveForward(robot):
     time.sleep(.1)
     adjust(robot, t, t2)
     #keeps moving until it hopefully gets to the center of the square
-    robot.m1_forward(21)
-    robot.m2_forward(21)
+    robot.m1_forward(1.7 * motorConstant)
+    robot.m2_forward(1.8 * motorConstant)
 
     time.sleep(1.2)
 
@@ -85,12 +91,12 @@ def face(robot, direction):
 
 
 def turnLeft(robot):
-    robot.m1_forward(19)
+    robot.m1_forward(20)
     time.sleep(.9)
     robot.stop()
 
 def turnRight(robot):
-    robot.m2_forward(19)
+    robot.m2_forward(20)
     time.sleep(.9)
     robot.stop()
 
